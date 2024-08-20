@@ -3,6 +3,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::command::Command;
 use crate::error::Error;
 use crate::server::{Server, ServerError};
 use crate::tasks::{TaskSpec, TaskStatus, TaskState};
@@ -64,32 +65,21 @@ async fn run_task(
     let spec = task.lock().await.spec.clone();
     match spec {
         TaskSpec::Command { ref args } => {
-            let result = tokio::process::Command::new(&args[0])
-                .args(&args[1..])
-                .spawn();
-            match result {
-                Ok(mut process) => {
-                    let result = process.wait().await;
-                    match result {
-                        Ok(status) => {
-                            if status.success() {
-                                finish_task(server, task_id).await;
-                            } else {
-                                fail_task(server, task_id, Error::ExitFailure(status))
-                                    .await;
-                            }
-                        }
-                        Err(err) => {
-                            fail_task(server, task_id,
-                                Error::CommandFailed(Arc::new(err))).await;
-                        }
+            let mut task = task.lock().await;
+            let cmd = Arc::new(Command::new());
+            let cmd_clone = cmd.clone();
+            let args = args.clone();
+            task.running = Some(cmd);
+            tokio::spawn(async move {
+                match cmd_clone.run(&args).await {
+                    Ok(_) => {
+                        finish_task(server, task_id).await;
+                    }
+                    Err(err) => {
+                        fail_task(server, task_id, err).await;
                     }
                 }
-                Err(err) => {
-                    fail_task(server, task_id, Error::CommandFailed(Arc::new(err)))
-                        .await;
-                }
-            }
+            });
         }
         TaskSpec::TaskGroup { ref parallel } => {
             let mut tasks = vec![];

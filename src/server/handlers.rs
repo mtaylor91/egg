@@ -21,6 +21,7 @@ pub async fn create_task(
         Arc::new(Mutex::new(ServerTask {
             spec: body.spec.clone(),
             status: TaskStatus::Pending,
+            running: None,
             finished: Arc::new(Notify::new()),
             error: None,
         }))
@@ -48,6 +49,5 @@ pub async fn start_task(
     State(server): State<Arc<Server>>,
     Path(task_id): Path<Uuid>
 ) -> Result<Json<TaskState>, ServerError> {
-    let state = crate::run::start_task(server, task_id).await?;
-    Ok(Json(state))
+    Ok(Json(crate::server::run::start_task(server, task_id).await?))
 }

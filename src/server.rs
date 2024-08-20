@@ -4,10 +4,12 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 use uuid::Uuid;
 
+use crate::command::Command;
 use crate::error::Error;
 use crate::tasks::{TaskSpec, TaskStatus};
 
 mod handlers;
+mod run;
 
 
 pub struct Server {
@@ -47,6 +49,7 @@ impl axum::response::IntoResponse for ServerError {
 pub struct ServerTask {
     pub spec: TaskSpec,
     pub status: TaskStatus,
+    pub running: Option<Arc<Command>>,
     pub finished: Arc<Notify>,
     pub error: Option<Error>,
 }
