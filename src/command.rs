@@ -91,11 +91,12 @@ impl Command {
 #[derive(Debug)]
 pub struct CommandStream {
     inner: Arc<Command>,
+    index: usize,
 }
 
 impl CommandStream {
     pub fn new(inner: Arc<Command>) -> Self {
-        Self { inner }
+        Self { inner, index: 0 }
     }
 }
 
@@ -104,7 +105,7 @@ impl Stream for CommandStream {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
-        let mut inner = match this.inner.inner.try_lock() {
+        let inner = match this.inner.inner.try_lock() {
             Ok(inner) => inner,
             Err(_) => {
                 cx.waker().wake_by_ref();
@@ -112,8 +113,9 @@ impl Stream for CommandStream {
             }
         };
 
-        if let Some(output) = inner.output.pop() {
-            Poll::Ready(Some(output))
+        if let Some(output) = inner.output.get(this.index) {
+            this.index += 1;
+            Poll::Ready(Some(output.clone()))
         } else if inner.status.is_some() {
             Poll::Ready(None)
         } else {
@@ -124,7 +126,7 @@ impl Stream for CommandStream {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Output {
     Stdout(String),
     Stderr(String),
