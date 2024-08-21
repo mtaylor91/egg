@@ -5,8 +5,28 @@ use tokio::sync::{Mutex, Notify};
 use uuid::Uuid;
 
 use crate::command::CommandStream;
+use crate::error::Error;
+use crate::plans::{CreatePlan, Plan};
 use crate::server::{Server, ServerError, ServerTask};
 use crate::tasks::{CreateTask, Task, TaskStatus, TaskState};
+
+
+pub async fn create_plan(
+    State(server): State<Arc<Server>>,
+    body: Json<CreatePlan>
+) -> Json<Plan> {
+    let plan = Plan {
+        id: Uuid::new_v4(),
+        spec: body.spec.clone(),
+    };
+
+    server.plans.lock().await.insert(
+        plan.id,
+        Arc::new(Mutex::new(plan.clone()))
+    );
+
+    Json(plan)
+}
 
 
 pub async fn create_task(
@@ -33,6 +53,34 @@ pub async fn create_task(
 }
 
 
+pub async fn get_plan(
+    State(server): State<Arc<Server>>,
+    Path(plan_id): Path<Uuid>
+) -> Result<Json<Plan>, ServerError> {
+    match server.plans.lock().await.get(&plan_id) {
+        Some(plan) => Ok(Json(Plan {
+            id: plan_id,
+            spec: plan.lock().await.spec.clone(),
+        })),
+        None => Err(ServerError::TaskNotFound(plan_id)),
+    }
+}
+
+
+pub async fn list_plans(State(server): State<Arc<Server>>) -> Json<Vec<Plan>> {
+    let mut plans = vec![];
+
+    for (id, plan) in server.plans.lock().await.iter() {
+        plans.push(Plan {
+            id: *id,
+            spec: plan.lock().await.spec.clone(),
+        });
+    }
+
+    Json(plans)
+}
+
+
 pub async fn list_tasks(State(server): State<Arc<Server>>) -> Json<Vec<Task>> {
     let mut tasks = vec![];
 
@@ -44,6 +92,25 @@ pub async fn list_tasks(State(server): State<Arc<Server>>) -> Json<Vec<Task>> {
     }
 
     Json(tasks)
+}
+
+
+pub async fn plan(
+    State(server): State<Arc<Server>>,
+    Path(plan_id): Path<Uuid>
+) -> Result<Json<Task>, ServerError> {
+    let plan_spec = match server.plans.lock().await.get(&plan_id) {
+        Some(plan) => plan.lock().await.spec.clone(),
+        None => {
+            return Err(ServerError::PlanNotFound(plan_id));
+        }
+    };
+
+    match crate::server::plan::task(server, plan_spec).await {
+        Ok(task) => Ok(Json(task)),
+        Err(Error::PlanNotFound(id)) => Err(ServerError::PlanNotFound(id)),
+        Err(_) => Err(ServerError::InternalServerError),
+    }
 }
 
 

@@ -93,6 +93,9 @@ async fn run_task(
                                 ServerError::TaskNotFound(_) => {
                                     Error::TaskNotFound(*child_id)
                                 }
+                                _ => {
+                                    Error::TaskFailed(*child_id)
+                                }
                             }
                         })?;
 
@@ -122,6 +125,11 @@ async fn run_task(
                         ServerError::TaskNotFound(_) => {
                             fail_task(server.clone(), task_id,
                                 Error::TaskNotFound(*child_id)).await;
+                            return;
+                        }
+                        _ => {
+                            fail_task(server.clone(), task_id,
+                                Error::TaskFailed(*child_id)).await;
                             return;
                         }
                     }

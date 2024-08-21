@@ -6,13 +6,16 @@ use uuid::Uuid;
 
 use crate::command::Command;
 use crate::error::Error;
+use crate::plans::Plan;
 use crate::tasks::{TaskSpec, TaskStatus};
 
 mod handlers;
+mod plan;
 mod run;
 
 
 pub struct Server {
+    pub plans: Mutex<HashMap<Uuid, Arc<Mutex<Plan>>>>,
     pub tasks: Mutex<HashMap<Uuid, Arc<Mutex<ServerTask>>>>,
     pub verbose: bool,
 }
@@ -20,6 +23,7 @@ pub struct Server {
 impl Server {
     pub fn new() -> Self {
         Self {
+            plans: Mutex::new(HashMap::new()),
             tasks: Mutex::new(HashMap::new()),
             verbose: false,
         }
@@ -28,12 +32,26 @@ impl Server {
 
 
 pub enum ServerError {
+    InternalServerError,
+    PlanNotFound(Uuid),
     TaskNotFound(Uuid),
 }
 
 impl axum::response::IntoResponse for ServerError {
     fn into_response(self) -> axum::http::Response<axum::body::Body> {
         match self {
+            ServerError::InternalServerError => {
+                (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error"
+                ).into_response()
+            }
+            ServerError::PlanNotFound(id) => {
+                (
+                    axum::http::StatusCode::NOT_FOUND,
+                    format!("Plan not found: {:?}", id)
+                ).into_response()
+            }
             ServerError::TaskNotFound(id) => {
                 (
                     axum::http::StatusCode::NOT_FOUND,
@@ -60,6 +78,8 @@ pub async fn serve(
     listener: tokio::net::TcpListener
 ) -> Result<(), std::io::Error> {
     let app = axum::Router::new()
+        .route("/plan/:plan_id", get(handlers::get_plan).post(handlers::plan))
+        .route("/plans", get(handlers::list_plans).post(handlers::create_plan))
         .route("/tasks", get(handlers::list_tasks).post(handlers::create_task))
         .route("/tasks/:task_id/output", get(handlers::task_output_stream))
         .route("/tasks/:task_id/start", post(handlers::start_task))

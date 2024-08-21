@@ -1,8 +1,13 @@
 {
   "spec": {
-    "args": [
-      "echo",
-      "Hello, World!"
+    "serial": [
+      { "args": ["echo", "task 1"] },
+      { "args": ["echo", "task 2"] },
+      { "parallel": [
+        { "args": ["echo", "task 3"] },
+        { "args": ["echo", "task 4"] }
+      ] },
+      { "args": ["echo", "task 5"] }
     ]
   }
 }
