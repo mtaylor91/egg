@@ -29,7 +29,7 @@ impl Command {
         }
     }
 
-    pub async fn run(&self, args: &[String]) -> Result<(), Error> {
+    pub async fn run(self: Arc<Self>, args: &[String]) -> Result<(), Error> {
         let mut process = tokio::process::Command::new(&args[0])
             .args(&args[1..])
             .stdout(std::process::Stdio::piped())
@@ -43,40 +43,23 @@ impl Command {
         let mut stdout = tokio::io::BufReader::new(stdout).lines();
         let mut stderr = tokio::io::BufReader::new(stderr).lines();
 
-        loop {
-            tokio::select! {
-                line = stdout.next_line() => {
-                    match line {
-                        Ok(Some(line)) => {
-                            let mut inner = self.inner.lock().await;
-                            inner.output.push(Output::Stdout(line));
-                            self.output.notify_waiters();
-                        }
-                        Ok(None) => {
-                            break;
-                        }
-                        Err(err) => {
-                            return Err(Error::CommandFailed(Arc::new(err)));
-                        }
-                    }
-                }
-                line = stderr.next_line() => {
-                    match line {
-                        Ok(Some(line)) => {
-                            let mut inner = self.inner.lock().await;
-                            inner.output.push(Output::Stderr(line));
-                            self.output.notify_waiters();
-                        }
-                        Ok(None) => {
-                            break;
-                        }
-                        Err(err) => {
-                            return Err(Error::CommandFailed(Arc::new(err)));
-                        }
-                    }
-                }
+        let self_clone = self.clone();
+        tokio::spawn(async move {
+            while let Some(line) = stdout.next_line().await.unwrap() {
+                let mut inner = self_clone.inner.lock().await;
+                inner.output.push(Output::Stdout(line));
+                self_clone.output.notify_waiters();
             }
-        }
+        });
+
+        let self_clone = self.clone();
+        tokio::spawn(async move {
+            while let Some(line) = stderr.next_line().await.unwrap() {
+                let mut inner = self_clone.inner.lock().await;
+                inner.output.push(Output::Stderr(line));
+                self_clone.output.notify_waiters();
+            }
+        });
 
         let status = process.wait().await
             .map_err(|err| Error::CommandFailed(Arc::new(err)))?;
