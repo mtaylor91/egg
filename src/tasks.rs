@@ -12,6 +12,7 @@ pub struct CreateTask {
 pub struct Task {
     pub id: Uuid,
     pub spec: TaskSpec,
+    pub status: TaskStatus,
 }
 
 

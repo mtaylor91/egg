@@ -20,6 +20,7 @@ pub fn task(
                 let task = Task {
                     id: Uuid::new_v4(),
                     spec: TaskSpec::Command { args },
+                    status: TaskStatus::Pending,
                 };
 
                 server.tasks.lock().await.insert(
@@ -45,6 +46,7 @@ pub fn task(
                 let task = Task {
                     id: Uuid::new_v4(),
                     spec: TaskSpec::TaskGroup { parallel: tasks },
+                    status: TaskStatus::Pending,
                 };
 
                 server.tasks.lock().await.insert(
@@ -70,6 +72,7 @@ pub fn task(
                 let task = Task {
                     id: Uuid::new_v4(),
                     spec: TaskSpec::TaskList { serial: tasks },
+                    status: TaskStatus::Pending,
                 };
 
                 server.tasks.lock().await.insert(

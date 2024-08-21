@@ -36,6 +36,7 @@ pub async fn create_task(
     let task = Task {
         id: Uuid::new_v4(),
         spec: body.spec.clone(),
+        status: TaskStatus::Pending,
     };
 
     server.tasks.lock().await.insert(
@@ -85,9 +86,11 @@ pub async fn list_tasks(State(server): State<Arc<Server>>) -> Json<Vec<Task>> {
     let mut tasks = vec![];
 
     for (id, task) in server.tasks.lock().await.iter() {
+        let task = task.lock().await;
         tasks.push(Task {
             id: *id,
-            spec: task.lock().await.spec.clone(),
+            spec: task.spec.clone(),
+            status: task.status.clone(),
         });
     }
 
