@@ -1,4 +1,9 @@
+use futures::stream::Stream;
+use serde::{Deserialize, Serialize};
+use std::pin::Pin;
+use std::process::ExitStatus;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use tokio::sync::{Mutex, Notify};
 use tokio::io::AsyncBufReadExt;
 
@@ -11,14 +16,6 @@ pub struct Command {
     output: Notify,
     exited: Notify,
 }
-
-
-#[derive(Debug)]
-struct CommandState {
-    output: Vec<u8>,
-    status: Option<std::process::ExitStatus>,
-}
-
 
 impl Command {
     pub fn new() -> Self {
@@ -52,8 +49,7 @@ impl Command {
                     match line {
                         Ok(Some(line)) => {
                             let mut inner = self.inner.lock().await;
-                            inner.output.extend_from_slice(line.as_bytes());
-                            inner.output.push(b'\n');
+                            inner.output.push(Output::Stdout(line));
                             self.output.notify_waiters();
                         }
                         Ok(None) => {
@@ -68,8 +64,7 @@ impl Command {
                     match line {
                         Ok(Some(line)) => {
                             let mut inner = self.inner.lock().await;
-                            inner.output.extend_from_slice(line.as_bytes());
-                            inner.output.push(b'\n');
+                            inner.output.push(Output::Stderr(line));
                             self.output.notify_waiters();
                         }
                         Ok(None) => {
@@ -83,10 +78,61 @@ impl Command {
             }
         }
 
+        let status = process.wait().await
+            .map_err(|err| Error::CommandFailed(Arc::new(err)))?;
         let mut inner = self.inner.lock().await;
-        let status = process.wait().await.expect("failed to wait for command");
         inner.status = Some(status);
         self.exited.notify_waiters();
         Ok(())
     }
+}
+
+
+#[derive(Debug)]
+pub struct CommandStream {
+    inner: Arc<Command>,
+}
+
+impl CommandStream {
+    pub fn new(inner: Arc<Command>) -> Self {
+        Self { inner }
+    }
+}
+
+impl Stream for CommandStream {
+    type Item = Output;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        let mut inner = match this.inner.inner.try_lock() {
+            Ok(inner) => inner,
+            Err(_) => {
+                cx.waker().wake_by_ref();
+                return Poll::Pending;
+            }
+        };
+
+        if let Some(output) = inner.output.pop() {
+            Poll::Ready(Some(output))
+        } else if inner.status.is_some() {
+            Poll::Ready(None)
+        } else {
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    }
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Output {
+    Stdout(String),
+    Stderr(String),
+}
+
+
+#[derive(Debug)]
+struct CommandState {
+    output: Vec<Output>,
+    status: Option<ExitStatus>,
 }

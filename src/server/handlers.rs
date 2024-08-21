@@ -1,8 +1,10 @@
-use axum::{extract::{Path, State}, Json};
+use axum::{extract::{Path, State}, response::IntoResponse, Json};
+use axum_streams::StreamBodyAs;
 use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 use uuid::Uuid;
 
+use crate::command::CommandStream;
 use crate::server::{Server, ServerError, ServerTask};
 use crate::tasks::{CreateTask, Task, TaskStatus, TaskState};
 
@@ -50,4 +52,26 @@ pub async fn start_task(
     Path(task_id): Path<Uuid>
 ) -> Result<Json<TaskState>, ServerError> {
     Ok(Json(crate::server::run::start_task(server, task_id).await?))
+}
+
+
+pub async fn task_output_stream(
+    State(server): State<Arc<Server>>,
+    Path(task_id): Path<Uuid>
+) -> Result<impl IntoResponse, ServerError> {
+    let cmd = match server.tasks.lock().await.get(&task_id) {
+        Some(task) => {
+            match task.lock().await.running {
+                Some(ref cmd) => cmd.clone(),
+                None => {
+                    return Err(ServerError::TaskNotFound(task_id));
+                }
+            }
+        }
+        None => {
+            return Err(ServerError::TaskNotFound(task_id));
+        }
+    };
+
+    Ok(StreamBodyAs::json_nl(CommandStream::new(cmd.clone())))
 }

@@ -61,6 +61,7 @@ pub async fn serve(
 ) -> Result<(), std::io::Error> {
     let app = axum::Router::new()
         .route("/tasks", get(handlers::list_tasks).post(handlers::create_task))
+        .route("/tasks/:task_id/output", get(handlers::task_output_stream))
         .route("/tasks/:task_id/start", post(handlers::start_task))
         .with_state(server);
     axum::serve(listener, app).await
