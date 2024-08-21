@@ -6,5 +6,6 @@ mod server;
 mod tasks;
 
 pub use error::Error;
+pub use plans::{CreatePlan, Plan};
 pub use server::Server;
 pub use server::serve;
