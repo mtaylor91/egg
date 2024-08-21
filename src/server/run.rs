@@ -3,8 +3,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::command::Command;
 use crate::error::Error;
+use crate::process::Process;
 use crate::server::{Server, ServerError};
 use crate::tasks::{TaskSpec, TaskStatus, TaskState};
 
@@ -72,7 +72,7 @@ async fn run_task(
     match spec {
         TaskSpec::Command { ref args } => {
             let mut task = task.lock().await;
-            let cmd = Arc::new(Command::new());
+            let cmd = Arc::new(Process::new());
             let cmd_clone = cmd.clone();
             let args = args.clone();
             task.running = Some(cmd);

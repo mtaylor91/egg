@@ -1,7 +1,7 @@
 // File: src/lib.rs
-mod command;
 mod error;
 mod plans;
+mod process;
 mod server;
 mod tasks;
 

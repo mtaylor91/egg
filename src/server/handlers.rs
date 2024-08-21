@@ -4,9 +4,9 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 use uuid::Uuid;
 
-use crate::command::CommandStream;
 use crate::error::Error;
 use crate::plans::{CreatePlan, Plan};
+use crate::process::OutputStream;
 use crate::server::{Server, ServerError, ServerTask};
 use crate::tasks::{CreateTask, Task, TaskStatus, TaskState};
 
@@ -35,6 +35,7 @@ pub async fn create_task(
 ) -> Json<Task> {
     let task = Task {
         id: Uuid::new_v4(),
+        plan: body.plan.clone(),
         spec: body.spec.clone(),
         status: TaskStatus::Pending,
     };
@@ -42,6 +43,7 @@ pub async fn create_task(
     server.tasks.lock().await.insert(
         task.id,
         Arc::new(Mutex::new(ServerTask {
+            plan: body.plan.clone(),
             spec: body.spec.clone(),
             status: TaskStatus::Pending,
             running: None,
@@ -89,6 +91,7 @@ pub async fn list_tasks(State(server): State<Arc<Server>>) -> Json<Vec<Task>> {
         let task = task.lock().await;
         tasks.push(Task {
             id: *id,
+            plan: task.plan.clone(),
             spec: task.spec.clone(),
             status: task.status.clone(),
         });
@@ -109,7 +112,7 @@ pub async fn plan(
         }
     };
 
-    match crate::server::plan::task(server, plan_spec).await {
+    match crate::server::plan::task(server, plan_id, plan_spec).await {
         Ok(task) => Ok(Json(task)),
         Err(Error::PlanNotFound(id)) => Err(ServerError::PlanNotFound(id)),
         Err(_) => Err(ServerError::InternalServerError),
@@ -143,5 +146,5 @@ pub async fn task_output_stream(
         }
     };
 
-    Ok(StreamBodyAs::json_nl(CommandStream::new(cmd.clone())))
+    Ok(StreamBodyAs::json_nl(OutputStream::new(cmd.clone())))
 }

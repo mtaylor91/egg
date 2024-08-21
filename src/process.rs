@@ -11,16 +11,16 @@ use crate::error::Error;
 
 
 #[derive(Debug)]
-pub struct Command {
-    inner: Mutex<CommandState>,
+pub struct Process {
+    inner: Mutex<ProcessState>,
     output: Notify,
     exited: Notify,
 }
 
-impl Command {
+impl Process {
     pub fn new() -> Self {
         Self {
-            inner: Mutex::new(CommandState {
+            inner: Mutex::new(ProcessState {
                 output: vec![],
                 status: None,
             }),
@@ -72,18 +72,18 @@ impl Command {
 
 
 #[derive(Debug)]
-pub struct CommandStream {
-    inner: Arc<Command>,
+pub struct OutputStream {
+    inner: Arc<Process>,
     index: usize,
 }
 
-impl CommandStream {
-    pub fn new(inner: Arc<Command>) -> Self {
+impl OutputStream {
+    pub fn new(inner: Arc<Process>) -> Self {
         Self { inner, index: 0 }
     }
 }
 
-impl Stream for CommandStream {
+impl Stream for OutputStream {
     type Item = Output;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
@@ -117,7 +117,7 @@ pub enum Output {
 
 
 #[derive(Debug)]
-struct CommandState {
+struct ProcessState {
     output: Vec<Output>,
     status: Option<ExitStatus>,
 }
