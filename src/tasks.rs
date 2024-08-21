@@ -4,7 +4,6 @@ use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateTask {
-    pub plan: Uuid,
     pub spec: TaskSpec,
 }
 
@@ -12,9 +11,16 @@ pub struct CreateTask {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Task {
     pub id: Uuid,
-    pub plan: Uuid,
+    pub plan: Option<TaskPlan>,
     pub spec: TaskSpec,
     pub status: TaskStatus,
+}
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TaskPlan {
+    pub id: Uuid,
+    pub version: u64,
 }
 
 

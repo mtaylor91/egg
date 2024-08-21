@@ -12,6 +12,7 @@ pub struct CreatePlan {
 pub struct Plan {
     pub id: Uuid,
     pub spec: PlanSpec,
+    pub version: u64,
 }
 
 

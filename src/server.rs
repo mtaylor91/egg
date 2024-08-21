@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::error::Error;
 use crate::plans::Plan;
 use crate::process::Process;
-use crate::tasks::{TaskSpec, TaskStatus};
+use crate::tasks::{TaskPlan, TaskSpec, TaskStatus};
 
 mod handlers;
 mod plan;
@@ -72,7 +72,7 @@ impl axum::response::IntoResponse for ServerError {
 
 #[derive(Debug)]
 pub struct ServerTask {
-    pub plan: Uuid,
+    pub plan: Option<TaskPlan>,
     pub spec: TaskSpec,
     pub status: TaskStatus,
     pub running: Option<Arc<Process>>,

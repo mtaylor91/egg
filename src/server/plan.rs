@@ -7,12 +7,12 @@ use uuid::Uuid;
 use crate::error::Error;
 use crate::plans::PlanSpec;
 use crate::server::{Server, ServerTask};
-use crate::tasks::{Task, TaskSpec, TaskStatus};
+use crate::tasks::{Task, TaskPlan, TaskSpec, TaskStatus};
 
 
 pub fn task(
     server: Arc<Server>,
-    plan_id: Uuid,
+    plan: TaskPlan,
     spec: PlanSpec,
 ) -> Pin<Box<dyn Future<Output = Result<Task, Error>> + Send>> {
     Box::pin(async move {
@@ -20,7 +20,7 @@ pub fn task(
             PlanSpec::Command { args } => {
                 let task = Task {
                     id: Uuid::new_v4(),
-                    plan: plan_id.clone(),
+                    plan: Some(plan.clone()),
                     spec: TaskSpec::Command { args },
                     status: TaskStatus::Pending,
                 };
@@ -28,7 +28,7 @@ pub fn task(
                 server.tasks.lock().await.insert(
                     task.id,
                     Arc::new(Mutex::new(ServerTask {
-                        plan: plan_id.clone(),
+                        plan: Some(plan.clone()),
                         spec: task.spec.clone(),
                         status: TaskStatus::Pending,
                         running: None,
@@ -42,13 +42,13 @@ pub fn task(
             PlanSpec::TaskGroup { parallel } => {
                 let mut tasks = Vec::new();
                 for child_spec in parallel {
-                    let child_task = task(server.clone(), plan_id, child_spec).await?;
-                    tasks.push(child_task.id);
+                    let child = task(server.clone(), plan.clone(), child_spec).await?;
+                    tasks.push(child.id);
                 }
 
                 let task = Task {
                     id: Uuid::new_v4(),
-                    plan: plan_id.clone(),
+                    plan: Some(plan.clone()),
                     spec: TaskSpec::TaskGroup { parallel: tasks },
                     status: TaskStatus::Pending,
                 };
@@ -56,7 +56,7 @@ pub fn task(
                 server.tasks.lock().await.insert(
                     task.id,
                     Arc::new(Mutex::new(ServerTask {
-                        plan: plan_id.clone(),
+                        plan: Some(plan.clone()),
                         spec: task.spec.clone(),
                         status: TaskStatus::Pending,
                         running: None,
@@ -70,13 +70,13 @@ pub fn task(
             PlanSpec::TaskList { serial } => {
                 let mut tasks = Vec::new();
                 for child_spec in serial {
-                    let child_task = task(server.clone(), plan_id, child_spec).await?;
-                    tasks.push(child_task.id);
+                    let child = task(server.clone(), plan.clone(), child_spec).await?;
+                    tasks.push(child.id);
                 }
 
                 let task = Task {
                     id: Uuid::new_v4(),
-                    plan: plan_id.clone(),
+                    plan: Some(plan.clone()),
                     spec: TaskSpec::TaskList { serial: tasks },
                     status: TaskStatus::Pending,
                 };
@@ -84,7 +84,7 @@ pub fn task(
                 server.tasks.lock().await.insert(
                     task.id,
                     Arc::new(Mutex::new(ServerTask {
-                        plan: plan_id.clone(),
+                        plan: Some(plan.clone()),
                         spec: task.spec.clone(),
                         status: TaskStatus::Pending,
                         running: None,
