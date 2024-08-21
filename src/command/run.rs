@@ -4,6 +4,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::client::Client;
 use crate::command::{Cli, Command, Create, CreateCommand, Error};
 use crate::plans::{CreatePlan, Plan};
 use crate::tasks::{Task, TaskState};
@@ -40,17 +41,7 @@ async fn create_plan(
     verbose: bool
 ) -> Result<(), Error> {
     let plan: CreatePlan = serde_yaml::from_str(&std::fs::read_to_string(filename)?)?;
-    let response = reqwest::Client::new()
-        .post(&format!("{}/plans", server))
-        .json(&plan)
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        return Err(Error::Reqwest(response.error_for_status().unwrap_err()));
-    }
-
-    let plan: Plan = response.json().await?;
+    let plan: Plan = Client::new(server).create_plan(&plan).await?;
     if verbose {
         println!("{:?}", plan);
     }
@@ -60,16 +51,7 @@ async fn create_plan(
 
 
 async fn plan(id: Uuid, server: String, verbose: bool) -> Result<(), Error> {
-    let response = reqwest::Client::new()
-        .post(&format!("{}/plan/{}", server, id))
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        return Err(Error::Reqwest(response.error_for_status().unwrap_err()));
-    }
-
-    let task: Task = response.json().await?;
+    let task: Task = Client::new(server).plan(id).await?;
     if verbose {
         println!("{:?}", task);
     }
@@ -88,16 +70,7 @@ async fn serve(bind: String, port: u16, verbose: bool) -> Result<(), std::io::Er
 
 
 async fn start(id: Uuid, server: String, verbose: bool) -> Result<(), Error> {
-    let response = reqwest::Client::new()
-        .post(&format!("{}/tasks/{}/start", server, id))
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        return Err(Error::Reqwest(response.error_for_status().unwrap_err()));
-    }
-
-    let task: TaskState = response.json().await?;
+    let task: TaskState = Client::new(server).start_task(id).await?;
     if verbose {
         println!("{:?}", task);
     }
@@ -118,8 +91,8 @@ fn tail_task(
     verbose: bool
 ) -> Pin<Box<dyn Future<Output = Result<(), Error>> + Send>> {
     Box::pin(async move {
-        // TODO: Implement tailing the task output stream
-        eprintln!("Not implemented");
+        let client = Client::new(server);
+        let task = client.get_task(id).await?;
         Ok(())
     })
 }

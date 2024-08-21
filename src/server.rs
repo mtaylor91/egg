@@ -89,6 +89,7 @@ pub async fn serve(
         .route("/plan/:plan_id", get(handlers::get_plan).post(handlers::plan))
         .route("/plans", get(handlers::list_plans).post(handlers::create_plan))
         .route("/tasks", get(handlers::list_tasks).post(handlers::create_task))
+        .route("/tasks/:task_id", get(handlers::get_task))
         .route("/tasks/:task_id/output", get(handlers::task_output_stream))
         .route("/tasks/:task_id/start", post(handlers::start_task))
         .with_state(server);

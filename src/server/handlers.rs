@@ -75,6 +75,25 @@ pub async fn get_plan(
 }
 
 
+pub async fn get_task(
+    State(server): State<Arc<Server>>,
+    Path(task_id): Path<Uuid>
+) -> Result<Json<Task>, ServerError> {
+    match server.tasks.lock().await.get(&task_id) {
+        Some(task) => {
+            let task = task.lock().await;
+            Ok(Json(Task {
+                id: task_id,
+                plan: task.plan.clone(),
+                spec: task.spec.clone(),
+                status: task.status.clone(),
+            }))
+        }
+        None => Err(ServerError::TaskNotFound(task_id)),
+    }
+}
+
+
 pub async fn list_plans(State(server): State<Arc<Server>>) -> Json<Vec<Plan>> {
     let mut plans = vec![];
 
