@@ -2,7 +2,7 @@ use clap::{Args, Parser, Subcommand};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use egg::{CreatePlan, Plan, Task};
+use egg::{CreatePlan, Plan, Task, TaskState};
 
 
 #[derive(Parser)]
@@ -30,6 +30,12 @@ enum Command {
         bind: String,
         #[clap(short, long, default_value = "3000")]
         port: u16,
+    },
+    #[clap(name = "start")]
+    Start {
+        id: Uuid,
+        #[clap(short, long, default_value = "http://127.0.0.1:3000")]
+        server: String,
     },
 }
 
@@ -93,6 +99,9 @@ async fn main() -> Result<(), Error> {
         Command::Serve { bind, port } => {
             serve(bind, port, args.verbose).await?;
         }
+        Command::Start { id, server } => {
+            start(id, server, args.verbose).await?;
+        }
     }
     Ok(())
 }
@@ -147,5 +156,24 @@ async fn serve(bind: String, port: u16, verbose: bool) -> Result<(), std::io::Er
     let server = Arc::new(egg::Server::new(verbose));
     let listener = tokio::net::TcpListener::bind(addr).await?;
     egg::serve(server, listener).await?;
+    Ok(())
+}
+
+
+async fn start(id: Uuid, server: String, verbose: bool) -> Result<(), Error> {
+    let response = reqwest::Client::new()
+        .post(&format!("{}/tasks/{}/start", server, id))
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        return Err(Error::Reqwest(response.error_for_status().unwrap_err()));
+    }
+
+    let task: TaskState = response.json().await?;
+    if verbose {
+        println!("{:?}", task);
+    }
+
     Ok(())
 }
