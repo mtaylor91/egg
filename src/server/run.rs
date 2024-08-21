@@ -19,7 +19,13 @@ pub fn start_task(
         }
 
         let task = match server.tasks.lock().await.get(&task_id) {
-            Some(task) => task.clone(),
+            Some(task) => {
+                if task.lock().await.status != TaskStatus::Pending {
+                    return Err(ServerError::InvalidTaskState(task_id));
+                }
+
+                task.clone()
+            }
             None => {
                 return Err(ServerError::TaskNotFound(task_id));
             }

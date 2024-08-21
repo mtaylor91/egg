@@ -21,11 +21,11 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new() -> Self {
+    pub fn new(verbose: bool) -> Self {
         Self {
             plans: Mutex::new(HashMap::new()),
             tasks: Mutex::new(HashMap::new()),
-            verbose: false,
+            verbose,
         }
     }
 }
@@ -35,6 +35,7 @@ pub enum ServerError {
     InternalServerError,
     PlanNotFound(Uuid),
     TaskNotFound(Uuid),
+    InvalidTaskState(Uuid),
 }
 
 impl axum::response::IntoResponse for ServerError {
@@ -56,6 +57,12 @@ impl axum::response::IntoResponse for ServerError {
                 (
                     axum::http::StatusCode::NOT_FOUND,
                     format!("Task not found: {:?}", id)
+                ).into_response()
+            }
+            ServerError::InvalidTaskState(id) => {
+                (
+                    axum::http::StatusCode::BAD_REQUEST,
+                    format!("Invalid task state: {:?}", id)
                 ).into_response()
             }
         }
