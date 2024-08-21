@@ -1,7 +1,8 @@
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use std::sync::Arc;
+use uuid::Uuid;
 
-use egg::{CreatePlan, Plan};
+use egg::{CreatePlan, Plan, Task};
 
 
 #[derive(Parser)]
@@ -15,6 +16,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    #[clap(name = "create")]
+    Create(Create),
+    #[clap(name = "plan")]
+    Plan {
+        id: Uuid,
+        #[clap(short, long, default_value = "http://127.0.0.1:3000")]
+        server: String,
+    },
     #[clap(name = "serve")]
     Serve {
         #[clap(short, long, default_value = "127.0.0.1")]
@@ -22,6 +31,18 @@ enum Command {
         #[clap(short, long, default_value = "3000")]
         port: u16,
     },
+}
+
+
+#[derive(Args)]
+struct Create {
+    #[clap(subcommand)]
+    command: CreateCommand,
+}
+
+
+#[derive(Subcommand)]
+enum CreateCommand {
     #[clap(name = "plan")]
     Plan {
         filename: String,
@@ -61,18 +82,23 @@ impl From<serde_yaml::Error> for Error {
 async fn main() -> Result<(), Error> {
     let args = Cli::parse();
     match args.command {
+        Command::Create(Create { command }) => match command {
+            CreateCommand::Plan { filename, server } => {
+                create_plan(filename, server, args.verbose).await?;
+            }
+        }
+        Command::Plan { id, server } => {
+            plan(id, server, args.verbose).await?;
+        }
         Command::Serve { bind, port } => {
             serve(bind, port, args.verbose).await?;
-        }
-        Command::Plan { filename, server } => {
-            plan(filename, server, args.verbose).await?;
         }
     }
     Ok(())
 }
 
 
-async fn plan(
+async fn create_plan(
     filename: String,
     server: String,
     verbose: bool
@@ -91,6 +117,25 @@ async fn plan(
     let plan: Plan = response.json().await?;
     if verbose {
         println!("{:?}", plan);
+    }
+
+    Ok(())
+}
+
+
+async fn plan(id: Uuid, server: String, verbose: bool) -> Result<(), Error> {
+    let response = reqwest::Client::new()
+        .post(&format!("{}/plan/{}", server, id))
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        return Err(Error::Reqwest(response.error_for_status().unwrap_err()));
+    }
+
+    let task: Task = response.json().await?;
+    if verbose {
+        println!("{:?}", task);
     }
 
     Ok(())
