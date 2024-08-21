@@ -1,4 +1,5 @@
 // File: src/lib.rs
+pub mod client;
 pub mod command;
 mod error;
 mod plans;

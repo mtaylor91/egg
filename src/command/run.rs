@@ -1,4 +1,6 @@
 use clap::Parser;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -23,6 +25,9 @@ pub async fn run() -> Result<(), Error> {
         }
         Command::Start { id, server } => {
             start(id, server, args.verbose).await?;
+        }
+        Command::Run { id, server } => {
+            run_task(id, server, args.verbose).await?;
         }
     }
     Ok(())
@@ -98,4 +103,23 @@ async fn start(id: Uuid, server: String, verbose: bool) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+
+async fn run_task(id: Uuid, server: String, verbose: bool) -> Result<(), Error> {
+    start(id, server.clone(), verbose).await?;
+    tail_task(id, server, verbose).await
+}
+
+
+fn tail_task(
+    id: Uuid,
+    server: String,
+    verbose: bool
+) -> Pin<Box<dyn Future<Output = Result<(), Error>> + Send>> {
+    Box::pin(async move {
+        // TODO: Implement tailing the task output stream
+        eprintln!("Not implemented");
+        Ok(())
+    })
 }
