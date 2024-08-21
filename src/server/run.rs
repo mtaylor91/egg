@@ -77,7 +77,7 @@ async fn run_task(
             let args = args.clone();
             task.running = Some(cmd);
             tokio::spawn(async move {
-                match cmd_clone.run(&args).await {
+                match cmd_clone.run(&args, server.verbose).await {
                     Ok(_) => {
                         finish_task(server, task_id).await;
                     }
@@ -87,36 +87,37 @@ async fn run_task(
                 }
             });
         }
-        TaskSpec::TaskGroup { ref parallel } => {
-            let mut tasks = vec![];
+        TaskSpec::TaskGroup { parallel } => {
+            let mut handles = vec![];
+
             for child_id in parallel {
                 let server = server.clone();
-                tasks.push(async move {
-                    // Start the child task
-                    start_task(server.clone(), *child_id).await
+                let handle = tokio::spawn(async move {
+                    start_task(server.clone(), child_id).await
                         .map_err(|err| {
                             match err {
                                 ServerError::TaskNotFound(_) => {
-                                    Error::TaskNotFound(*child_id)
+                                    Error::TaskNotFound(child_id)
                                 }
                                 _ => {
-                                    Error::TaskFailed(*child_id)
+                                    Error::TaskFailed(child_id)
                                 }
                             }
                         })?;
 
                     // Wait for the child task to finish
-                    if let Err(_) = wait_task(server.clone(), *child_id).await {
-                        Err(Error::TaskFailed(*child_id))
+                    if let Err(_) = wait_task(server.clone(), child_id).await {
+                        Err(Error::TaskFailed(child_id))
                     } else {
                         Ok(())
                     }
                 });
+                handles.push(handle);
             }
 
-            for task in tasks {
-                if let Err(err) = task.await {
-                    fail_task(server.clone(), task_id, err).await;
+            for handle in handles {
+                if let Err(_) = handle.await {
+                    fail_task(server.clone(), task_id, Error::TaskFailed(task_id)).await;
                     return;
                 }
             }

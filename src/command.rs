@@ -44,6 +44,12 @@ pub enum Command {
         #[clap(short, long, default_value = "http://127.0.0.1:3000")]
         server: String,
     },
+    #[clap(name = "tail")]
+    Tail {
+        id: Uuid,
+        #[clap(short, long, default_value = "http://127.0.0.1:3000")]
+        server: String,
+    },
 }
 
 

@@ -29,7 +29,12 @@ impl Process {
         }
     }
 
-    pub async fn run(self: Arc<Self>, args: &[String]) -> Result<(), Error> {
+    pub async fn run(
+        self: Arc<Self>,
+        args: &[String],
+        verbose: bool
+    ) -> Result<(), Error> {
+
         let mut process = tokio::process::Command::new(&args[0])
             .args(&args[1..])
             .stdout(std::process::Stdio::piped())
@@ -47,8 +52,11 @@ impl Process {
         tokio::spawn(async move {
             while let Some(line) = stdout.next_line().await.unwrap() {
                 let mut inner = self_clone.inner.lock().await;
-                inner.output.push(Output::Stdout(line));
+                inner.output.push(Output::Stdout(line.clone()));
                 self_clone.output.notify_waiters();
+                if verbose {
+                    eprintln!("{}", line);
+                }
             }
         });
 
@@ -56,8 +64,11 @@ impl Process {
         tokio::spawn(async move {
             while let Some(line) = stderr.next_line().await.unwrap() {
                 let mut inner = self_clone.inner.lock().await;
-                inner.output.push(Output::Stderr(line));
+                inner.output.push(Output::Stderr(line.clone()));
                 self_clone.output.notify_waiters();
+                if verbose {
+                    eprintln!("{}", line);
+                }
             }
         });
 

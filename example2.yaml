@@ -1,0 +1,14 @@
+spec:
+  parallel:
+  - serial:
+    - args: ["echo", "task 1"]
+    - args: ["sleep", "1"]
+    - args: ["echo", "task 2"]
+    - args: ["sleep", "1"]
+    - args: ["echo", "task 3"]
+  - serial:
+    - args: ["echo", "task 4"]
+    - args: ["sleep", "1"]
+    - args: ["echo", "task 5"]
+    - args: ["sleep", "1"]
+    - args: ["echo", "task 6"]

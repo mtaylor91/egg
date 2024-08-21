@@ -1,3 +1,6 @@
+use reqwest_streams::{*, error::StreamBodyError};
+
+use crate::process::Output;
 use crate::plans::{CreatePlan, Plan};
 use crate::tasks::{Task, TaskState};
 
@@ -45,7 +48,7 @@ impl Client {
 
     pub async fn plan(&self, plan_id: uuid::Uuid) -> Result<Task, reqwest::Error> {
         let response = self.reqwest
-            .get(&format!("{}/plan/{}", self.server, plan_id))
+            .post(&format!("{}/plan/{}", self.server, plan_id))
             .send()
             .await?;
 
@@ -70,5 +73,17 @@ impl Client {
         }
 
         Ok(response.json().await?)
+    }
+
+    pub async fn tail_task(
+        &self,
+        task_id: uuid::Uuid
+    ) -> Result<impl futures::Stream<Item = Result<Output, StreamBodyError>>, reqwest::Error> {
+        Ok(self.reqwest
+            .get(&format!("{}/tasks/{}/output", self.server, task_id))
+            .send()
+            .await?
+            .json_nl_stream::<Output>(16384)
+        )
     }
 }
