@@ -84,13 +84,13 @@ impl Process {
 
 #[derive(Debug)]
 pub struct OutputStream {
-    inner: Arc<Process>,
+    process: Arc<Process>,
     index: usize,
 }
 
 impl OutputStream {
-    pub fn new(inner: Arc<Process>) -> Self {
-        Self { inner, index: 0 }
+    pub fn new(process: Arc<Process>) -> Self {
+        Self { process, index: 0 }
     }
 }
 
@@ -99,18 +99,18 @@ impl Stream for OutputStream {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
-        let inner = match this.inner.inner.try_lock() {
-            Ok(inner) => inner,
+        let process = match this.process.inner.try_lock() {
+            Ok(process) => process,
             Err(_) => {
                 cx.waker().wake_by_ref();
                 return Poll::Pending;
             }
         };
 
-        if let Some(output) = inner.output.get(this.index) {
+        if let Some(output) = process.output.get(this.index) {
             this.index += 1;
             Poll::Ready(Some(output.clone()))
-        } else if inner.status.is_some() {
+        } else if process.status.is_some() {
             Poll::Ready(None)
         } else {
             cx.waker().wake_by_ref();
