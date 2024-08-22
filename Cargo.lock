@@ -287,23 +287,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
-name = "egg"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-streams",
- "clap",
- "futures",
- "reqwest",
- "reqwest-streams",
- "serde",
- "serde_json",
- "serde_yaml",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "encoding_rs"
 version = "0.8.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -883,6 +866,23 @@ name = "pkg-config"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
+
+[[package]]
+name = "poultry"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-streams",
+ "clap",
+ "futures",
+ "reqwest",
+ "reqwest-streams",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+ "uuid",
+]
 
 [[package]]
 name = "proc-macro2"

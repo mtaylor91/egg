@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::error::Error;
 use crate::plans::PlanSpec;
-use crate::server::{Server, ServerTask};
+use crate::egg::server::{Server, ServerTask};
 use crate::tasks::{Task, TaskPlan, TaskSpec, TaskStatus};
 
 

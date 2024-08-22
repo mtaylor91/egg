@@ -4,10 +4,10 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 use uuid::Uuid;
 
+use crate::egg::server::{Server, ServerError, ServerPlan, ServerTask};
 use crate::error::Error;
 use crate::plans::{CreatePlan, Plan};
 use crate::process::OutputStream;
-use crate::server::{Server, ServerError, ServerPlan, ServerTask};
 use crate::tasks::{CreateTask, Task, TaskPlan, TaskStatus, TaskState};
 
 
@@ -164,7 +164,7 @@ pub async fn plan(
     };
 
     let plan = TaskPlan { id: plan_id, version: version };
-    match crate::server::plan::task(server, plan, spec).await {
+    match crate::egg::server::plan::task(server, plan, spec).await {
         Ok(task) => Ok(Json(task)),
         Err(Error::PlanNotFound(id)) => Err(ServerError::PlanNotFound(id)),
         Err(_) => Err(ServerError::InternalServerError),
@@ -176,7 +176,7 @@ pub async fn start_task(
     State(server): State<Arc<Server>>,
     Path(task_id): Path<Uuid>
 ) -> Result<Json<TaskState>, ServerError> {
-    Ok(Json(crate::server::run::start_task(server, task_id).await?))
+    Ok(Json(crate::egg::server::run::start_task(server, task_id).await?))
 }
 
 

@@ -5,8 +5,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::client::Client;
-use crate::command::{Cli, Command, Create, CreateCommand, Error};
+use crate::egg::client::Client;
+use crate::egg::command::{Cli, Command, Create, CreateCommand, Error};
 use crate::plans::{CreatePlan, Plan};
 use crate::process::Output;
 use crate::tasks::{Task, TaskSpec, TaskState};
@@ -67,9 +67,9 @@ async fn plan(id: Uuid, server: String, verbose: bool) -> Result<(), Error> {
 
 async fn serve(bind: String, port: u16, verbose: bool) -> Result<(), std::io::Error> {
     let addr = format!("{}:{}", bind, port);
-    let server = Arc::new(crate::server::Server::new(verbose));
+    let server = Arc::new(crate::egg::server::Server::new(verbose));
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    crate::server::serve(server, listener).await?;
+    crate::egg::server::serve(server, listener).await?;
     Ok(())
 }
 

@@ -1,7 +1,7 @@
-use egg::command::{Error, run};
+use poultry::egg::command::Error;
 
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    run().await
+    poultry::egg::command::run().await
 }

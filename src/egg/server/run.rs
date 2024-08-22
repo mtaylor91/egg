@@ -3,9 +3,9 @@ use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::egg::server::{Server, ServerError};
 use crate::error::Error;
 use crate::process::Process;
-use crate::server::{Server, ServerError};
 use crate::tasks::{TaskSpec, TaskStatus, TaskState};
 
 
