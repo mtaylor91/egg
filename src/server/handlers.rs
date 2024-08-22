@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::error::Error;
 use crate::plans::{CreatePlan, Plan};
 use crate::process::OutputStream;
-use crate::server::{Server, ServerError, ServerTask};
+use crate::server::{Server, ServerError, ServerPlan, ServerTask};
 use crate::tasks::{CreateTask, Task, TaskPlan, TaskStatus, TaskState};
 
 
@@ -23,7 +23,9 @@ pub async fn create_plan(
 
     server.plans.lock().await.insert(
         plan.id,
-        Arc::new(Mutex::new(plan.clone()))
+        Arc::new(Mutex::new(ServerPlan {
+            versions: vec![plan.spec.clone()]
+        }))
     );
 
     Json(plan)
@@ -63,12 +65,20 @@ pub async fn get_plan(
 ) -> Result<Json<Plan>, ServerError> {
     match server.plans.lock().await.get(&plan_id) {
         Some(plan) => {
-            let plan = plan.lock().await;
-            Ok(Json(Plan {
-                id: plan_id,
-                spec: plan.spec.clone(),
-                version: plan.version,
-            }))
+            let state = plan.lock().await;
+            let version = state.versions.len();
+            match state.versions.last() {
+                Some(plan) => {
+                    return Ok(Json(Plan {
+                        id: plan_id,
+                        spec: plan.clone(),
+                        version: version as u64,
+                    }));
+                }
+                None => {
+                    return Err(ServerError::PlanNotFound(plan_id));
+                }
+            }
         }
         None => Err(ServerError::TaskNotFound(plan_id)),
     }
@@ -99,11 +109,17 @@ pub async fn list_plans(State(server): State<Arc<Server>>) -> Json<Vec<Plan>> {
 
     for (id, plan) in server.plans.lock().await.iter() {
         let plan = plan.lock().await;
-        plans.push(Plan {
-            id: *id,
-            spec: plan.spec.clone(),
-            version: plan.version,
-        });
+        let version = plan.versions.len() as u64;
+        match plan.versions.last() {
+            Some(plan) => {
+                plans.push(Plan {
+                    id: *id,
+                    spec: plan.clone(),
+                    version: version,
+                })
+            }
+            None => {},
+        }
     }
 
     Json(plans)
@@ -131,15 +147,23 @@ pub async fn plan(
     State(server): State<Arc<Server>>,
     Path(plan_id): Path<Uuid>
 ) -> Result<Json<Task>, ServerError> {
-    let plan = match server.plans.lock().await.get(&plan_id) {
-        Some(plan) => plan.lock().await.clone(),
+    let (spec, version) = match server.plans.lock().await.get(&plan_id) {
+        Some(plan) => {
+            let state = plan.lock().await;
+            let version = state.versions.len() as u64;
+            match state.versions.last() {
+                Some(plan) => (plan.clone(), version),
+                None => {
+                    return Err(ServerError::PlanNotFound(plan_id));
+                }
+            }
+        }
         None => {
             return Err(ServerError::PlanNotFound(plan_id));
         }
     };
 
-    let spec = plan.spec.clone();
-    let plan = TaskPlan { id: plan.id, version: plan.version };
+    let plan = TaskPlan { id: plan_id, version: version };
     match crate::server::plan::task(server, plan, spec).await {
         Ok(task) => Ok(Json(task)),
         Err(Error::PlanNotFound(id)) => Err(ServerError::PlanNotFound(id)),
@@ -175,4 +199,21 @@ pub async fn task_output_stream(
     };
 
     Ok(StreamBodyAs::json_nl(OutputStream::new(cmd.clone())))
+}
+
+
+pub async fn update_plan(
+    State(server): State<Arc<Server>>,
+    Path(plan_id): Path<Uuid>,
+    body: Json<CreatePlan>
+) -> Result<Json<Plan>, ServerError> {
+    let plans = server.plans.lock().await;
+    let plan = plans.get(&plan_id).ok_or(ServerError::PlanNotFound(plan_id))?;
+    let mut plan = plan.lock().await;
+    plan.versions.push(body.spec.clone());
+    Ok(Json(Plan {
+        id: plan_id,
+        spec: body.spec.clone(),
+        version: plan.versions.len() as u64,
+    }))
 }

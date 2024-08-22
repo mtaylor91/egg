@@ -5,7 +5,7 @@ use tokio::sync::{Mutex, Notify};
 use uuid::Uuid;
 
 use crate::error::Error;
-use crate::plans::Plan;
+use crate::plans::PlanSpec;
 use crate::process::Process;
 use crate::tasks::{TaskPlan, TaskSpec, TaskStatus};
 
@@ -15,7 +15,7 @@ mod run;
 
 
 pub struct Server {
-    pub plans: Mutex<HashMap<Uuid, Arc<Mutex<Plan>>>>,
+    pub plans: Mutex<HashMap<Uuid, Arc<Mutex<ServerPlan>>>>,
     pub tasks: Mutex<HashMap<Uuid, Arc<Mutex<ServerTask>>>>,
     pub verbose: bool,
 }
@@ -71,6 +71,12 @@ impl axum::response::IntoResponse for ServerError {
 
 
 #[derive(Debug)]
+pub struct ServerPlan {
+    pub versions: Vec<PlanSpec>,
+}
+
+
+#[derive(Debug)]
 pub struct ServerTask {
     pub plan: Option<TaskPlan>,
     pub spec: TaskSpec,
@@ -86,7 +92,10 @@ pub async fn serve(
     listener: tokio::net::TcpListener
 ) -> Result<(), std::io::Error> {
     let app = axum::Router::new()
-        .route("/plan/:plan_id", get(handlers::get_plan).post(handlers::plan))
+        .route("/plan/:plan_id",
+            get(handlers::get_plan)
+            .post(handlers::plan)
+            .put(handlers::update_plan))
         .route("/plans", get(handlers::list_plans).post(handlers::create_plan))
         .route("/tasks", get(handlers::list_tasks).post(handlers::create_task))
         .route("/tasks/:task_id", get(handlers::get_task))
